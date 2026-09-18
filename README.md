@@ -1,120 +1,89 @@
+![AgentForge overview](docs/media/overview.svg)
+
 # AgentForge
 
-**Production-grade agentic automation with falsification-first validation.**
+**Small, inspectable tools for artifact validation and change-aware automation.**
 
-AgentForge is a self-contained framework for AI-assisted engineering workflows. It treats agent execution the way a research lab treats experiments: every run is validated, every change is detected, and every output is falsified before it ships.
+AgentForge provides Python command-line utilities to hash files, check lightweight data contracts, manage text artifacts and metadata, and distinguish new inputs from changed or unchanged ones. Use the pieces in your own agent or batch workflow without adopting an orchestration framework.
 
----
+[Quickstart](#quickstart) · [How it fits together](#how-it-fits-together) · [Source map](#source-map) · [Limitations](#limitations)
 
-## Why This Exists
+## What is included
 
-Most agentic workflows optimize for speed. AgentForge optimizes for **rigor**.
+| Tool | Purpose |
+| --- | --- |
+| File hashing | Chunked hashing with SHA-256 by default |
+| Contract checks | Required JSON fields and basic types; CSV columns and row bounds; text rules |
+| Change store | A JSON-backed comparison returning `NEW`, `CHANGED`, or `UNCHANGED` |
+| Artifact management | Write, read, and list files; writes include a `.meta.json` sidecar |
+| Monitor example | A host-specific example of comparing a source hash with persisted state |
 
-If you use AI to write code, generate artifacts, or automate analysis, you already know the failure modes:
-- Silent regressions from unvalidated changes
-- Infinite loops on ambiguous tool calls
-- Outputs that look correct but aren't
+## How it fits together
 
-AgentForge answers with a simple structure: **validate → detect change → falsify → ship.**
-
----
-
-## Core Capabilities
-
-| Module | What It Does |
-|---|---|
-| **Iterative validation loop** | Single-agent run → validate → refine → retry with hard cap |
-| **Parallel subagent refinement** | Multi-agent parallel execution → schema validation → score-based selection |
-| **Change detection monitor** | Hash-based change detection: NEW / CHANGED / UNCHANGED states |
-| **Silent no-op cron** | Scheduled jobs that fire only when inputs actually change |
-| **Artifact manager** | Write/read/list artifacts with metadata and stable SHA-256 hashing |
-| **Schema validators** | JSON, CSV, and text validation with required keys, type checks, regex, and size bounds |
-
----
-
-## Verified Behaviors
-
-These are not claims — they are observed outcomes from end-to-end verification:
-
-1. **Validation pipeline** — CSV/JSON/text artifacts validated against schemas
-2. **Change detection** — NEW → fire, CHANGED → fire, UNCHANGED → silent
-3. **Silent no-op** — second identical monitor run produces empty stdout, zero agent execution
-4. **Parallel subagent pattern** — N tasks dispatched in one call, validated, best result selected
-5. **One retry only** — hard cap prevents infinite loops
-
----
-
-## When to Use AgentForge
-
-- You run AI-assisted coding or research workflows and need **artifact-level rigor**
-- You want **change detection** so cron jobs only fire when inputs actually change
-- You need **parallel subagent execution** with schema-enforced outputs
-- You want **silent no-op** scheduling to avoid wasting tokens on unchanged runs
-- You believe agent outputs should be **falsified, not just generated**
-
----
-
-## When Not to Use It
-
-- You want fast prototyping without validation overhead
-- Your workflow is entirely manual or doesn't produce discrete artifacts
-- You need real-time agentic interaction rather than batch artifact pipelines
-
----
-
-## Architecture
-
-```
-agentforge/
-├── README.md
-├── SYSTEM_VERIFIED.md             # End-to-end verification report
-├── final_analysis_report.md       # Sample verified artifact
-├── result_method_{a,b,c}.csv      # Sample verified artifacts
-└── src/
-    ├── validate_artifact.py       # JSON/CSV/text schema validator
-    ├── artifact_hash.py           # Stable SHA-256 hashing
-    ├── change_detector.py         # Hash store with NEW/UNCHANGED/CHANGED
-    ├── artifact_manager.py        # Write/read/list artifacts with metadata
-    └── monitor_demo.py            # Working cron monitor with silent no-op
+```mermaid
+flowchart LR
+    F[Artifact file] --> H[artifact_hash.py]
+    H --> C[change_detector.py]
+    S[(JSON hash store)] --> C
+    C --> D[NEW / CHANGED / UNCHANGED]
+    F --> V[validate_artifact.py]
+    R[User-supplied contract] --> V
+    V --> O[JSON validation result]
+    M[artifact_manager.py] --> F
+    M --> META[Metadata sidecar]
 ```
 
----
+These are separate utilities, not an automatically connected agent execution graph. Your calling process decides when to validate, persist a new hash, or trigger work.
 
-## Efficiency Optimizations
+## Quickstart
 
-| Optimization | Effect |
-|---|---|
-| Batch dispatch | All N subtasks sent in one `delegate_task` call |
-| Leaf-only roles | No wasted orchestration overhead |
-| Schema-enforced outputs | Catches failures immediately |
-| One retry only | Hard cap prevents infinite loops |
-| Score-based selection | Automatically picks best result |
-| Silent no-op cron | Zero tokens spent on unchanged runs |
-| Tight contexts | Less context per subtask = faster execution |
+Use Python 3 and Git. The utilities import only the Python standard library; there is no dependency-install step.
 
----
+```bash
+git clone https://github.com/MdSadman20040812/AgentForge.git
+cd AgentForge
+python src/artifact_hash.py final_analysis_report.md
+python src/artifact_manager.py list --dir src
+python src/validate_artifact.py --help
+python src/change_detector.py --help
+```
 
-## Requirements
+The hash command prints an algorithm-prefixed digest; the manager prints JSON. For validation, supply your own contract to `--schema` and the target file to `--artifact`. Use `--schema-type csv` explicitly for a CSV artifact with a JSON-formatted CSV contract; automatic detection uses the **schema file's extension**, not the artifact's.
 
-- Python 3.10+
-- Git
-- Any agent runtime that supports `delegate_task` with `output_schema`
+| Contract type | Implemented checks |
+| --- | --- |
+| JSON | Required keys, basic type names, nested objects, and limited enum/array checks |
+| CSV | `required_columns`, `min_rows`, `max_rows` |
+| Text | `MIN_LINES`, `MAX_LINES`, `MUST_CONTAIN`, `MUST_NOT_CONTAIN`, `REGEX`, `MIN_SIZE`, `MAX_SIZE` |
 
-No external API keys. No cloud dependencies. Runs locally.
+`change_detector.py` defaults to comparison only. Persist a value with `--action store`; provide the same `--store`, `--key`, and `--hash` arguments when comparing it later.
 
----
+### Before using the monitor example
 
-## Verification
+[monitor_demo.py](src/monitor_demo.py) contains author-machine paths for `ARTIFACT_HASH_STORE`, `TRIGGER_SOURCE`, and the hashing subprocess. Review and adapt those paths before running it. The unchanged branch currently prints a blank line, while new and changed branches print a message; **all three exit with code 0**. It does not launch an agent or install a cron job.
 
-All behaviors above were verified in a live end-to-end run producing:
-- `final_analysis_report.md`
-- `result_method_{a,b,c}.csv`
-- `SYSTEM_VERIFIED.md`
+## Source map
 
-Run `python src/monitor_demo.py` to see silent no-op in action.
+| File | Start here for |
+| --- | --- |
+| [src/validate_artifact.py](src/validate_artifact.py) | Contract format and validation CLI |
+| [src/artifact_hash.py](src/artifact_hash.py) | File digests and optional digest output file |
+| [src/change_detector.py](src/change_detector.py) | Persisted hash comparison |
+| [src/artifact_manager.py](src/artifact_manager.py) | Artifact I/O and metadata |
+| [src/monitor_demo.py](src/monitor_demo.py) | Host-specific monitoring example |
+| [SYSTEM_VERIFIED.md](SYSTEM_VERIFIED.md) | Historical verification notes, not a fresh test report |
+| [final_analysis_report.md](final_analysis_report.md) | Committed sample artifact |
+| [result_method_a.csv](result_method_a.csv), [result_method_b.csv](result_method_b.csv), [result_method_c.csv](result_method_c.csv) | Committed CSV examples |
 
----
+## Limitations
 
-## License
+- This repository does not include an agent runtime, parallel-worker dispatcher, retry controller, or scheduler.
+- The JSON validator is a small custom contract checker, not a complete JSON Schema implementation. CSV row bounds count physical lines, which can miscount quoted multiline records.
+- A matching hash proves byte identity, not correctness. Passing a contract does not establish scientific or semantic validity.
+- Hash-store writes have no locking or atomic-update mechanism; coordinate concurrent writers externally.
+- The monitor does not check its hashing subprocess's return code. A failed hash operation can therefore become an empty stored value.
+- This documentation refresh inspected source; it did not reproduce the historical verification claims. No license file is present in the inspected repository tree.
 
-MIT
+## Contribute
+
+Open an issue or pull request with a minimal input, the expected contract result, and the actual result. Useful next steps include portable monitor configuration, subprocess error handling, atomic state updates, and regression tests for malformed and multiline artifacts.
