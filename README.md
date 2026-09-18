@@ -1,95 +1,35 @@
-![AgentForge](https://img.shields.io/badge/AgentForge-Multi--Agent%20Framework-7c3aed?style=for-the-badge)
-![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python)
-![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
+![AgentForge — Artifact validation & change-aware automation](docs/visuals/header.png)
 
-**Multi-agent orchestration framework — compose, route, and coordinate LLM agents.**
+# AgentForge
 
----
+Python utilities for validating artifacts, hashing outputs and detecting changes. The repository contains small automation building blocks and a worked example—not an installable multi-agent SDK.
 
-## 🏗️ Architecture
+**[Source guide](#source-guide)** · **[Getting started](#getting-started)** · **[Scope & limitations](#scope--limitations)**
 
-```mermaid
-graph TB
-    subgraph User
-        P[Prompt / Query]
-    end
-    subgraph AgentForge
-        subgraph Router
-            R[Intent Router]
-            PL[Planner]
-        end
-        subgraph Agents
-            A1[Research Agent]
-            A2[Code Agent]
-            A3[Analysis Agent]
-            A4[Review Agent]
-        end
-        subgraph Memory
-            SM[(Short-term<br/>Context Window)]
-            LM[(Long-term<br/>Vector Store)]
-        end
-        subgraph Tools
-            T1[Search]
-            T2[Execute]
-            T3[File I/O]
-        end
-    end
-    P --> R
-    R --> PL
-    PL --> A1
-    PL --> A2
-    PL --> A3
-    PL --> A4
-    A1 <--> SM
-    A2 <--> SM
-    A3 <--> LM
-    A4 <--> LM
-    A1 --> T1
-    A2 --> T2
-    A3 --> T3
-    A4 --> T3
-```
+## Source guide
 
----
+[![Repository components and their source paths](docs/visuals/repository-guide.png)](docs/visuals/repository-guide.png)
 
-## ✨ Features
+| Component | Open source | Purpose |
+| :-- | :-- | :-- |
+| Validate artifacts | [`src/validate_artifact.py`](src/validate_artifact.py) | Schema checks for JSON, CSV and text. |
+| Hash outputs | [`src/artifact_hash.py`](src/artifact_hash.py) | Stable hashes for change detection. |
+| Track changes | [`src/change_detector.py`](src/change_detector.py) | Persist and compare trigger hashes. |
+| Manage artifacts | [`src/artifact_manager.py`](src/artifact_manager.py) | Write, read and list artifacts with metadata. |
 
-- **Intent routing** — automatic agent selection based on task type
-- **Multi-step planning** — decompose complex queries into agent pipelines
-- **Tool use** — search, code execution, file operations
-- **Memory tiers** — short-term context + long-term vector retrieval
-- **Agent coordination** — review agent validates outputs before return
+## Getting started
 
----
-
-## 🚀 Quick Start
+From a local checkout of this repository:
 
 ```bash
-pip install agentforge
-from agentforge import Forge
-forge = Forge()
-response = forge.run("Research X, code solution Y, analyze Z")
+python src/artifact_hash.py README.md
+python src/validate_artifact.py --help
 ```
+
+## Scope & limitations
+
+The monitor demo uses machine-specific paths. Adapt those before running it. See [system notes](SYSTEM_VERIFIED.md) for the original integration context.
 
 ---
 
-## 📁 Project Structure
-
-```
-AgentForge/
-├── agentforge/
-│   ├── core.py            # Forge orchestrator
-│   ├── router.py          # Intent routing
-│   ├── planner.py         # Multi-step decomposition
-│   ├── agents/            # Agent implementations
-│   ├── memory/            # Short + long-term memory
-│   └── tools/             # Tool integrations
-├── tests/
-└── README.md
-```
-
----
-
-## 📄 License
-
-MIT © Md Sadman Bin Masud
+[Visual asset sources and presentation notes](docs/visuals/README.md)
